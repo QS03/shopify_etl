@@ -1,0 +1,40 @@
+service: Shopify-InventoryLevel
+
+provider:
+  name: aws
+  runtime: python3.6
+  stage: ${opt:stage, 'dev'}
+  region: us-east-1
+  environment:
+    REDSHIFT_HOST: ${file(../config.json):REDSHIFT_HOST}
+    REDSHIFT_PORT: ${file(../config.json):REDSHIFT_PORT}
+    REDSHIFT_DBNAME: ${file(../config.json):REDSHIFT_DBNAME}
+    REDSHIFT_USERNAME: ${file(../config.json):REDSHIFT_USERNAME}
+    REDSHIFT_PASSWORD: ${file(../config.json):REDSHIFT_PASSWORD}
+    SHOPIFY_CLIENT_ID: ${file(../config.json):SHOPIFY_CLIENT_ID}
+    SHOPIFY_SECRET_KEY: ${file(../config.json):SHOPIFY_SECRET_KEY}
+
+custom: ${file(../custom.yaml)}
+# It is not possible to reference files on directory levels above serverless.yml directly when working in AWS Lambda
+# So, we either have to install these additional files as pip packages or `include` them to the package explicitly
+# Included python files would be available parallel to serverless.yml and needs to be imported in this structure
+# For example:
+# fdc_data_dynamodb is present two levels above this serverless.yml, but in common.py it can be imported from cur dir.
+package:
+  include:
+    - ../psycopg2/**
+
+functions:
+  handler:
+    handler: handler.handler
+    name: ${self:service}
+    description: Daily data loading from shopify inventorylevel api
+    timeout: 600
+    reservedConcurrency: 1
+    events:
+      - schedule: cron(50 3 * * ? *) # 11.45 pm EST everyday
+
+plugins:
+  - serverless-python-requirements
+  - serverless-pseudo-parameters
+  - serverless-prune-plugin
